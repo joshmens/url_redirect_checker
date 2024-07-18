@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Results</title>
+</head>
+<body>
+    <h1>Results</h1>
+    <table border="1">
+        <tr>
+            <th>URL A</th>
+            <th>Final Redirect URL</th>
+            <th>Status</th>
+        </tr>
+        {% for url_a, final_url, status in results %}
+        <tr>
+            <td>{{ url_a }}</td>
+            <td>{{ final_url }}</td>
+            <td>{{ status }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <a href="/">Upload another file</a>
+</body>
+</html>

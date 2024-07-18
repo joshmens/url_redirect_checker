@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>URL Redirect Checker</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <h1>Upload CSV or Excel File</h1>
+    <form action="/" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv, .xlsx" required>
+        <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>
