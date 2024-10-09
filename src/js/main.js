@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         cellRedirectingUrl.innerText = redirectingUrl;
                         cellStatus.innerText = 'Processing...';
 
+                        // Update the checkRedirect function call to ensure correct URL format
                         checkRedirect(originalUrl, redirectingUrl).then(result => {
                             cellStatus.innerText = result.status + ' (' + result.message + ')';
                             
@@ -72,7 +73,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             function checkRedirect(originalUrl, redirectingUrl) {
-                return fetch(corsProxy + originalUrl, {
+                // Use the CORS proxy to make the request
+                return fetch(corsProxy + encodeURIComponent(originalUrl), {
                     method: 'HEAD',
                     redirect: 'manual'
                 })
