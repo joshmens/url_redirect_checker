@@ -1,2 +1,22 @@
 docker-compose.yml
 config.json
+node_modules
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Builds
+client/build/
+client/src.backup/
+client/backup/
+
+# Backup files
+*.bak
+*.backup
+
+# Database
+database.sqlite
+
+# Lock files
+package-lock.json
+client/package-lock.json

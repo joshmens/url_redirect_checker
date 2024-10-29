@@ -1,14 +1,22 @@
-FROM node:14
+FROM node:18-alpine
 
+# Set working directory
 WORKDIR /usr/src/app
 
-COPY package*.json ./
-
-RUN npm install
-
+# Copy all source files
 COPY . .
 
-RUN cd client && npm install && npm run build
+# Install server dependencies
+RUN npm install
+
+# Install client dependencies and build
+RUN cd client && \
+    npm install && \
+    npm run build && \
+    ls -la build/  # Debug: verify build files exist
+
+# Verify final structure
+RUN ls -la /usr/src/app/client/build/
 
 EXPOSE 5000
 
