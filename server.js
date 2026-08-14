@@ -1,13 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { parse } = require('csv-parse/sync'); // Updated import
+const { parse } = require('csv-parse/sync');
 const XLSX = require('xlsx');
 const sqlite3 = require('sqlite3').verbose();
 const axios = require('axios');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
+const crypto = require('crypto');
 
 // Initialize express app and server
 const app = express();
@@ -16,7 +17,7 @@ const server = http.createServer(app);
 // Socket.IO setup with more specific configuration
 const io = socketIo(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
+    origin: process.env.NODE_ENV === 'production'
       ? 'https://urlchecker.nzweb.dev'
       : 'http://localhost:3000',
     methods: ["GET", "POST"],
@@ -49,23 +50,81 @@ app.get('/api/test', (req, res) => {
   res.json({ test: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Who am I (identity comes from Cloudflare Access, injected as a header at the edge)
+app.get('/api/whoami', (req, res) => {
+  res.json({ email: req.headers['cf-access-authenticated-user-email'] || null });
+});
+
 // Database setup
 const db = new sqlite3.Database('./database.sqlite');
 db.serialize(() => {
+  // Legacy table from before runs were tracked - left in place, no longer written to.
   db.run("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, data TEXT)");
+
+  db.run(`CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY,
+    user_email TEXT,
+    filename TEXT,
+    created_at TEXT,
+    completed_at TEXT,
+    status TEXT,
+    total INTEGER,
+    correct INTEGER,
+    incorrect INTEGER,
+    errors INTEGER,
+    results TEXT
+  )`);
+});
+
+const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+  db.run(sql, params, function (err) {
+    if (err) reject(err); else resolve(this);
+  });
+});
+const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+  db.get(sql, params, (err, row) => {
+    if (err) reject(err); else resolve(row);
+  });
+});
+const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+  db.all(sql, params, (err, rows) => {
+    if (err) reject(err); else resolve(rows);
+  });
 });
 
 // File upload setup
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage: storage,
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }
 });
+
+// Kicks off a new run: persists the run row and starts background processing,
+// then responds with the runId so the client can navigate to its permalink.
+async function startRun(req, res, urls, filename) {
+  const userEmail = req.headers['cf-access-authenticated-user-email'] || 'unknown';
+  const runId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  try {
+    await dbRun(
+      `INSERT INTO runs (id, user_email, filename, created_at, completed_at, status, total, correct, incorrect, errors, results)
+       VALUES (?, ?, ?, ?, NULL, 'running', ?, 0, 0, 0, NULL)`,
+      [runId, userEmail, filename, now, urls.length]
+    );
+  } catch (error) {
+    console.error('Failed to create run:', error);
+    return res.status(500).json({ error: 'Failed to create run: ' + error.message });
+  }
+
+  processUrls(urls, io, runId);
+  res.json({ runId, urlCount: urls.length });
+}
 
 // File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
   console.log('Upload received at:', new Date().toISOString());
-  
+
   if (!req.file) {
     console.error('No file received');
     return res.status(400).json({ error: 'No file uploaded' });
@@ -80,25 +139,19 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
   if (file.mimetype === 'text/csv') {
     try {
-      console.log('CSV content:', file.buffer.toString().substring(0, 500)); // Debug log
-      
       const records = parse(file.buffer.toString(), {
-        columns: header => header.map(column => column.toLowerCase()), // Convert headers to lowercase
+        columns: header => header.map(column => column.toLowerCase()),
         skip_empty_lines: true,
         trim: true
       });
-      
-      console.log('First parsed record:', records[0]); // Debug log
-      
+
       const urls = records
         .filter(record => record.from && record.to)
         .map(record => ({ from: record.from, to: record.to }));
 
       console.log(`CSV parsing complete. Found ${urls.length} valid URLs`);
-      console.log('First few URLs:', urls.slice(0, 2)); // Debug log
-      
-      processUrls(urls, io);
-      res.json({ message: 'File uploaded successfully', urlCount: urls.length });
+
+      startRun(req, res, urls, file.originalname);
     } catch (error) {
       console.error('CSV processing error:', error);
       res.status(500).json({ error: 'Failed to process CSV: ' + error.message });
@@ -111,14 +164,14 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       const data = XLSX.utils.sheet_to_json(worksheet);
       const urls = data.map(row => ({ from: row.from, to: row.to }));
       console.log(`Excel parsing complete. Found ${urls.length} valid URLs`);
-      processUrls(urls, io);
-      res.json({ message: 'File uploaded successfully', urlCount: urls.length });
+
+      startRun(req, res, urls, file.originalname);
     } catch (error) {
       console.error('Excel parsing error:', error);
       res.status(500).json({ error: 'Failed to process Excel: ' + error.message });
     }
   } else {
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Invalid file type',
       received: file.mimetype,
       allowed: ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
@@ -126,22 +179,116 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   }
 });
 
-async function processUrls(urls, socket) {
-  const sessionId = Date.now().toString();
+// List all runs (metadata only), newest first
+app.get('/api/runs', async (req, res) => {
+  try {
+    const rows = await dbAll(
+      `SELECT id, user_email, filename, created_at, completed_at, status, total, correct, incorrect, errors
+       FROM runs ORDER BY created_at DESC`
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list runs: ' + error.message });
+  }
+});
+
+// Full run detail, including results once complete
+app.get('/api/runs/:id', async (req, res) => {
+  try {
+    const row = await dbGet('SELECT * FROM runs WHERE id = ?', [req.params.id]);
+    if (!row) return res.status(404).json({ error: 'Run not found' });
+    res.json({
+      ...row,
+      results: row.results ? JSON.parse(row.results) : []
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load run: ' + error.message });
+  }
+});
+
+const EXPORT_COLUMNS = ['From', 'To', 'Actual', 'Status', 'HTTP Status', 'Note', 'Error', 'Error Type'];
+
+function toRowObjects(results) {
+  return results.map(r => ({
+    'From': r.from || '',
+    'To': r.to || '',
+    'Actual': r.actual || '',
+    'Status': r.status || '',
+    'HTTP Status': r.statusCode || '',
+    'Note': r.note || '',
+    'Error': r.error || '',
+    'Error Type': r.errorType || ''
+  }));
+}
+
+function toCsv(results) {
+  const escape = (v) => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [EXPORT_COLUMNS.map(escape).join(',')];
+  for (const row of toRowObjects(results)) {
+    lines.push(EXPORT_COLUMNS.map(col => escape(row[col])).join(','));
+  }
+  return lines.join('\n');
+}
+
+async function loadCompletedRun(id, res) {
+  const row = await dbGet('SELECT * FROM runs WHERE id = ?', [id]);
+  if (!row) {
+    res.status(404).json({ error: 'Run not found' });
+    return null;
+  }
+  if (row.status !== 'complete') {
+    res.status(409).json({ error: 'Run is still processing' });
+    return null;
+  }
+  return row;
+}
+
+app.get('/api/runs/:id/export.csv', async (req, res) => {
+  try {
+    const row = await loadCompletedRun(req.params.id, res);
+    if (!row) return;
+    const csv = toCsv(JSON.parse(row.results || '[]'));
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="run-${row.id}.csv"`);
+    res.send(csv);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to export CSV: ' + error.message });
+  }
+});
+
+app.get('/api/runs/:id/export.xlsx', async (req, res) => {
+  try {
+    const row = await loadCompletedRun(req.params.id, res);
+    if (!row) return;
+    const worksheet = XLSX.utils.json_to_sheet(toRowObjects(JSON.parse(row.results || '[]')));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Results');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="run-${row.id}.xlsx"`);
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to export XLSX: ' + error.message });
+  }
+});
+
+// Processes URLs in batches, streaming progress to anyone who has joined the
+// run's Socket.IO room (the uploader, plus anyone else viewing its permalink).
+async function processUrls(urls, io, runId) {
   const results = [];
   const startTime = Date.now();
   const batchSize = 5;
 
-  // Helper function to normalize URLs for comparison
   const normalizeUrl = (url) => {
     try {
       const urlObj = new URL(url);
-      // Always remove trailing slash from pathname
       let pathname = urlObj.pathname;
       if (pathname.endsWith('/')) {
         pathname = pathname.slice(0, -1);
       }
-      // Reconstruct URL without trailing slash
       return `${urlObj.origin}${pathname}${urlObj.search}${urlObj.hash}`.replace(/\/$/, '');
     } catch (e) {
       console.error('URL normalization error:', e);
@@ -149,7 +296,7 @@ async function processUrls(urls, socket) {
     }
   };
 
-  console.log(`Starting to process ${urls.length} URLs at ${new Date().toISOString()}`);
+  console.log(`Starting to process ${urls.length} URLs for run ${runId}`);
 
   for (let i = 0; i < urls.length; i += batchSize) {
     const batch = urls.slice(i, i + batchSize);
@@ -158,14 +305,14 @@ async function processUrls(urls, socket) {
     const batchPromises = batch.map(async (url, batchIndex) => {
       try {
         console.log(`Checking URL (${i + batchIndex + 1}/${urls.length}):`, url.from);
-        const response = await axios.get(url.from, { 
+        const response = await axios.get(url.from, {
           maxRedirects: 5,
           timeout: 30000,
           validateStatus: function (status) {
             return status >= 200 && status < 400;
           }
         });
-        
+
         const normalizedActual = normalizeUrl(response.request.res.responseUrl);
         const normalizedExpected = normalizeUrl(url.to);
         const isCorrect = normalizedActual === normalizedExpected;
@@ -177,7 +324,6 @@ async function processUrls(urls, socket) {
           actual: response.request.res.responseUrl,
           status: isCorrect || onlyTrailingSlashDiff ? 'correct' : 'incorrect',
           statusCode: response.status,
-          // Add note about trailing slash if that was the only difference
           note: onlyTrailingSlashDiff && !isCorrect ? 'Matches except for trailing slash' : undefined
         };
       } catch (error) {
@@ -200,7 +346,8 @@ async function processUrls(urls, socket) {
     const estimatedTotalTime = (elapsedTime / progress) * 100;
     const remainingTime = Math.round(estimatedTotalTime - elapsedTime);
 
-    io.emit('progress', {
+    io.to(runId).emit('progress', {
+      runId,
       progress: Math.min(progress, 100),
       remainingTime,
       currentBatch: Math.floor(i/batchSize) + 1,
@@ -210,13 +357,11 @@ async function processUrls(urls, socket) {
       results: batchResults
     });
 
-    // Add a small delay between batches
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log('Processing complete at:', new Date().toISOString());
-  
-  // Log summary of results
+  console.log('Processing complete for run:', runId);
+
   const summary = {
     total: results.length,
     correct: results.filter(r => r.status === 'correct').length,
@@ -226,28 +371,40 @@ async function processUrls(urls, socket) {
   };
   console.log('Results summary:', summary);
 
-  db.run("INSERT INTO sessions (id, data) VALUES (?, ?)", [sessionId, JSON.stringify(results)]);
-  io.emit('complete', { sessionId, results, summary });
+  try {
+    await dbRun(
+      `UPDATE runs SET status = 'complete', completed_at = ?, total = ?, correct = ?, incorrect = ?, errors = ?, results = ? WHERE id = ?`,
+      [new Date().toISOString(), summary.total, summary.correct, summary.incorrect, summary.errors, JSON.stringify(results), runId]
+    );
+  } catch (error) {
+    console.error('Failed to persist run results:', error);
+  }
+
+  io.to(runId).emit('complete', { runId, results, summary });
 }
 
-// Socket.IO Connection Handler
+// Socket.IO Connection Handler - clients join a room per run to receive its
+// live progress/complete events, whether they started the run or just opened its link.
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
-  
+
+  socket.on('join-run', ({ runId } = {}) => {
+    if (runId) {
+      socket.join(runId);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
 });
 
-// IMPORTANT: API routes must be before static file serving
 app.use(express.static(path.join(__dirname, 'client/build')));
 
-// React app catch-all route - LAST route
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/build/index.html'));
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', {
     error: err.message,
@@ -256,8 +413,8 @@ app.use((err, req, res, next) => {
     method: req.method,
     headers: req.headers
   });
-  res.status(500).json({ 
-    error: 'Server error', 
+  res.status(500).json({
+    error: 'Server error',
     details: err.message,
     path: req.path
   });

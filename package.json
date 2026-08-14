@@ -11,17 +11,18 @@
     "build": "cd client && npm run build"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "sqlite3": "^5.1.6",
-    "csv-parse": "^5.5.2",
-    "xlsx": "^0.18.5",
     "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.2",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.2",
-    "multer": "^1.4.5-lts.1"
+    "sqlite3": "^6.0.1",
+    "tar": "^7.5.13",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
   }
 }
