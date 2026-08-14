@@ -81,10 +81,17 @@ function verifyAccessJwt(req, res, next) {
 
 app.use(verifyAccessJwt);
 
+// Strips headers that carry live, replayable credentials (session cookie,
+// Access JWT) before they ever reach a log line.
+function redactHeaders(headers) {
+  const { cookie, authorization, 'cf-access-jwt-assertion': jwt, ...safe } = headers;
+  return safe;
+}
+
 // Debug middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, {
-    headers: req.headers,
+    headers: redactHeaders(req.headers),
     query: req.query,
     body: req.body
   });
@@ -462,7 +469,7 @@ app.use((err, req, res, next) => {
     stack: err.stack,
     path: req.path,
     method: req.method,
-    headers: req.headers
+    headers: redactHeaders(req.headers)
   });
   res.status(500).json({
     error: 'Server error',
