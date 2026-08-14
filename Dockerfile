@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /usr/src/app
@@ -18,6 +18,6 @@ RUN cd client && \
 # Verify final structure
 RUN ls -la /usr/src/app/client/build/
 
-EXPOSE 5000
+EXPOSE 443
 
 CMD ["npm", "start"]

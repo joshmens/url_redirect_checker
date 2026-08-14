@@ -7,12 +7,25 @@ const sqlite3 = require('sqlite3').verbose();
 const axios = require('axios');
 const path = require('path');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const socketIo = require('socket.io');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
 
 // Initialize express app and server
 const app = express();
-const server = http.createServer(app);
+
+// TLS: terminated directly here with a Cloudflare Origin CA cert (Full
+// strict mode), since the app no longer sits behind SWAG. Falls back to
+// plain HTTP when no cert is configured (local dev).
+const TLS_CERT_PATH = process.env.TLS_CERT_PATH;
+const TLS_KEY_PATH = process.env.TLS_KEY_PATH;
+const useTls = Boolean(TLS_CERT_PATH && TLS_KEY_PATH);
+const server = useTls
+  ? https.createServer({ cert: fs.readFileSync(TLS_CERT_PATH), key: fs.readFileSync(TLS_KEY_PATH) }, app)
+  : http.createServer(app);
 
 // Socket.IO setup with more specific configuration
 const io = socketIo(server, {
@@ -29,6 +42,44 @@ const io = socketIo(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Verify every request actually passed through Cloudflare Access, rather
+// than trusting the Cf-Access-Authenticated-User-Email header on faith.
+// Without a Tunnel, the origin has a real public IP (locked down to
+// Cloudflare's IP ranges at the network level) - this is the
+// defense-in-depth backstop so the app is still correct even if that
+// network-level restriction were ever misconfigured. Skipped when unset
+// (local dev).
+const CF_ACCESS_TEAM_DOMAIN = process.env.CF_ACCESS_TEAM_DOMAIN;
+const CF_ACCESS_AUD = process.env.CF_ACCESS_AUD;
+const accessJwks = CF_ACCESS_TEAM_DOMAIN
+  ? jwksClient({ jwksUri: `https://${CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs` })
+  : null;
+
+function getAccessSigningKey(header, callback) {
+  accessJwks.getSigningKey(header.kid, (err, key) => {
+    if (err) return callback(err);
+    callback(null, key.getPublicKey());
+  });
+}
+
+function verifyAccessJwt(req, res, next) {
+  if (!CF_ACCESS_TEAM_DOMAIN || !CF_ACCESS_AUD) return next();
+
+  const token = req.headers['cf-access-jwt-assertion'];
+  if (!token) {
+    return res.status(401).json({ error: 'Missing Cloudflare Access assertion' });
+  }
+  jwt.verify(token, getAccessSigningKey, { audience: CF_ACCESS_AUD }, (err) => {
+    if (err) {
+      console.error('Access JWT verification failed:', err.message);
+      return res.status(401).json({ error: 'Invalid Cloudflare Access assertion' });
+    }
+    next();
+  });
+}
+
+app.use(verifyAccessJwt);
 
 // Debug middleware
 app.use((req, res, next) => {
@@ -420,9 +471,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || (useTls ? 443 : 5000);
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} (${useTls ? 'https' : 'http'})`);
   console.log(`Serving static files from: ${path.join(__dirname, 'client/build')}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 });

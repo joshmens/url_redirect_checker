@@ -1,0 +1,17 @@
+services:
+  url_redirect_checker:
+    build: .
+    container_name: url_redirect_checker
+    ports:
+      - "443:443"
+    volumes:
+      - /opt/urlchecker/data/database.sqlite:/usr/src/app/database.sqlite
+      - /opt/urlchecker/certs:/certs:ro
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=production
+      - TLS_CERT_PATH=/certs/cert.pem
+      - TLS_KEY_PATH=/certs/key.pem
+      - CF_ACCESS_TEAM_DOMAIN=joshnz.cloudflareaccess.com
+      - CF_ACCESS_AUD=${CF_ACCESS_AUD}
+    restart: unless-stopped
