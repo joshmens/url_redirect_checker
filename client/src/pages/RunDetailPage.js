@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Row, Col, Table, ProgressBar, Spinner, Alert, Button, Form } from 'react-bootstrap';
+import { Row, Col, Table, ProgressBar, Spinner, Alert, Button, Form, Badge } from 'react-bootstrap';
 import socket from '../socket';
 
 function RunDetailPage({ darkMode }) {
@@ -151,16 +151,13 @@ function RunDetailPage({ darkMode }) {
       {status === 'complete' && (
         <Row className="my-3">
           <Col>
-            <div className={`p-3 rounded ${darkMode ? 'bg-secondary' : 'bg-light'}`}>
+            <div className={`p-3 rounded border ${darkMode ? 'bg-dark text-light' : 'bg-light'}`}>
               <h4>Summary</h4>
-              <div>
-                Total URLs: {run.total}
-                <br />
-                Correct: {run.correct}
-                <br />
-                Incorrect: {run.incorrect}
-                <br />
-                Errors: {run.errors}
+              <div className="d-flex align-items-center gap-3">
+                <span>Total: {run.total}</span>
+                <span>Correct: <Badge bg="success">{run.correct}</Badge></span>
+                <span>Incorrect: <Badge bg="danger">{run.incorrect}</Badge></span>
+                <span>Errors: <Badge bg="warning" text="dark">{run.errors}</Badge></span>
               </div>
             </div>
           </Col>
@@ -190,9 +187,17 @@ function RunDetailPage({ darkMode }) {
                     result.status === 'incorrect' ? 'table-danger' :
                     'table-warning'
                   }>
-                    <td>{result.from}</td>
-                    <td>{result.to}</td>
-                    <td>{result.status}</td>
+                    <td className="text-truncate" style={{ maxWidth: '320px' }} title={result.from}>{result.from}</td>
+                    <td className="text-truncate" style={{ maxWidth: '320px' }} title={result.to}>{result.to}</td>
+                    <td>
+                      <Badge bg={
+                        result.status === 'correct' ? 'success' :
+                        result.status === 'incorrect' ? 'danger' :
+                        'warning'
+                      } text={result.status === 'error' ? 'dark' : undefined}>
+                        {result.status}
+                      </Badge>
+                    </td>
                     <td>
                       {result.status === 'correct' ? (
                         <>

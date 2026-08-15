@@ -52,9 +52,9 @@ function RunsListPage({ darkMode }) {
                       : <Badge bg="secondary">complete</Badge>}
                   </td>
                   <td>{run.total}</td>
-                  <td>{run.correct}</td>
-                  <td>{run.incorrect}</td>
-                  <td>{run.errors}</td>
+                  <td><Badge bg="success">{run.correct}</Badge></td>
+                  <td><Badge bg="danger">{run.incorrect}</Badge></td>
+                  <td><Badge bg="warning" text="dark">{run.errors}</Badge></td>
                 </tr>
               ))
             )}

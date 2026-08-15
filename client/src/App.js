@@ -18,7 +18,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className={darkMode ? 'bg-dark text-light min-vh-100' : 'min-vh-100'}>
+      <div data-bs-theme={darkMode ? 'dark' : 'light'} className={darkMode ? 'bg-dark text-light min-vh-100' : 'min-vh-100'}>
         <Navbar bg={darkMode ? 'dark' : 'light'} variant={darkMode ? 'dark' : 'light'} expand="md" className="mb-3">
           <Container>
             <Navbar.Brand as={NavLink} to="/">URL Redirect Checker</Navbar.Brand>
