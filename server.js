@@ -108,9 +108,16 @@ app.get('/api/test', (req, res) => {
   res.json({ test: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Who am I (identity comes from Cloudflare Access, injected as a header at the edge)
+// Who am I (identity comes from Cloudflare Access, injected as a header at the edge).
+// Cloudflare Access never sits in front of a local run, so that header is
+// never present here - fall back to a placeholder so the topbar's identity
+// pill has something to render while developing/previewing locally. Same
+// "unset CF_ACCESS_TEAM_DOMAIN means local dev" signal verifyAccessJwt()
+// above already uses, so this never fires in production.
 app.get('/api/whoami', (req, res) => {
-  res.json({ email: req.headers['cf-access-authenticated-user-email'] || null });
+  const email = req.headers['cf-access-authenticated-user-email']
+    || (!CF_ACCESS_TEAM_DOMAIN ? 'local-dev@localhost' : null);
+  res.json({ email });
 });
 
 // Database setup

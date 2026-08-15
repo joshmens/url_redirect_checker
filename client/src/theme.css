@@ -1,0 +1,617 @@
+/*
+ * Theme tokens for the URL Redirect Checker UI.
+ *
+ * This re-points Bootstrap 5.3's own CSS custom properties (defined at
+ * :root by bootstrap.min.css) at a softer, muted palette + rounder corners.
+ * Because Bootstrap's components (Button, Badge, Card, Table, Alert, ...)
+ * already read their colors/radii from these variables at render time,
+ * every react-bootstrap component in the app picks up the new look without
+ * per-component overrides. Loaded after bootstrap.min.css in index.js so
+ * these values win the cascade.
+ */
+
+:root {
+  --app-sidebar-width: 260px;
+  --app-radius: 0.75rem;
+  --app-radius-sm: 0.5rem;
+  --app-shadow-sm: 0 0.125rem 0.5rem rgba(30, 41, 59, 0.06);
+  --app-shadow: 0 0.25rem 1rem rgba(30, 41, 59, 0.08);
+
+  --app-bg: #f4f5fa;
+  --app-surface: #ffffff;
+  --app-surface-alt: #f8f9fc;
+  --app-border: #e8e9f1;
+  --app-text: #3d3d5c;
+  --app-text-muted: #7b7f9e;
+
+  --app-primary: #6f5fd8;
+  --app-primary-rgb: 111, 95, 216;
+  --app-primary-soft: rgba(111, 95, 216, 0.12);
+
+  /* Re-point Bootstrap's variables at the palette above. */
+  --bs-body-font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-border-color: var(--app-border);
+  --bs-border-color-translucent: var(--app-border);
+  --bs-secondary-color: var(--app-text-muted);
+  --bs-tertiary-bg: var(--app-surface-alt);
+
+  --bs-border-radius: var(--app-radius-sm);
+  --bs-border-radius-sm: 0.375rem;
+  --bs-border-radius-lg: var(--app-radius);
+  --bs-border-radius-xl: 1rem;
+  --bs-border-radius-pill: 50rem;
+
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: var(--app-primary-rgb);
+  --bs-link-color: var(--app-primary);
+  --bs-link-color-rgb: var(--app-primary-rgb);
+  --bs-link-hover-color: #5b4cc4;
+  --bs-link-hover-color-rgb: 91, 76, 196;
+
+  --bs-secondary: #8a94a6;
+  --bs-secondary-rgb: 138, 148, 166;
+  --bs-success: #4cbf8f;
+  --bs-success-rgb: 76, 191, 143;
+  --bs-danger: #e5605a;
+  --bs-danger-rgb: 229, 96, 90;
+  --bs-warning: #e8a94c;
+  --bs-warning-rgb: 232, 169, 76;
+  --bs-info: #4ea8de;
+  --bs-info-rgb: 78, 168, 222;
+
+  /* Solid (non-translucent) row-status tints, tuned per theme rather than
+     derived from a single alpha overlay - a flat alpha over the status
+     color reads very differently against a white surface vs a near-black
+     one, so light/dark each get their own hand-picked value below. */
+  --row-success-bg: #cdead9;
+  --row-danger-bg: #f6d3cf;
+  --row-warning-bg: #f8e2b8;
+}
+
+[data-bs-theme='dark'] {
+  --app-bg: #1b1c2b;
+  --app-surface: #232437;
+  --app-surface-alt: #2a2b41;
+  --app-border: #33344c;
+  --app-text: #e3e4f1;
+  --app-text-muted: #9a9dc0;
+
+  --app-primary: #8f83e8;
+  --app-primary-rgb: 143, 131, 232;
+  --app-primary-soft: rgba(143, 131, 232, 0.16);
+
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-border-color: var(--app-border);
+  --bs-border-color-translucent: var(--app-border);
+  --bs-tertiary-bg: var(--app-surface-alt);
+  --bs-secondary-color: var(--app-text-muted);
+
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: var(--app-primary-rgb);
+  --bs-link-color: var(--app-primary);
+  --bs-link-color-rgb: var(--app-primary-rgb);
+
+  --row-success-bg: #1e4636;
+  --row-danger-bg: #4a2723;
+  --row-warning-bg: #4a3a1c;
+}
+
+body {
+  background-color: var(--app-bg);
+}
+
+a,
+.btn,
+.nav-link,
+.card,
+.form-control,
+.form-select,
+.badge,
+.status-pill {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+    color 0.15s ease, transform 0.1s ease;
+}
+
+/* ---- App shell / layout ---- */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  background-color: var(--app-bg);
+  /* data-bs-theme lives on this element, not <body>, so re-declare color
+     here (rather than relying on inheritance from <body>) - otherwise
+     elements below that don't set their own color, like the dark-mode
+     switch's <label>, stay stuck with the value <body> computed for
+     light mode and never pick up --bs-body-color's dark-mode value. */
+  color: var(--bs-body-color);
+}
+
+.app-sidebar {
+  width: var(--app-sidebar-width);
+  flex-shrink: 0;
+  background-color: var(--app-surface);
+  border-right: 1px solid var(--app-border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 1.25rem 1rem;
+}
+
+.app-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--app-text);
+  padding: 0.5rem 0.75rem 1.5rem;
+}
+
+.app-sidebar-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.app-sidebar-link,
+.app-sidebar-link.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text-muted) !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.app-sidebar-link:hover {
+  background-color: var(--app-surface-alt);
+  color: var(--app-text) !important;
+}
+
+.app-sidebar-link.active {
+  background-color: var(--app-primary-soft);
+  color: var(--app-primary) !important;
+  font-weight: 600;
+}
+
+.app-sidebar-icon {
+  font-size: 0.95rem;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  background-color: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-topbar-toggle {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.app-topbar-toggle span {
+  display: block;
+  width: 1.05rem;
+  height: 2px;
+  background-color: var(--app-text-muted);
+  border-radius: 2px;
+}
+
+.app-user-pill {
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+  background-color: var(--app-surface-alt);
+  border: 1px solid var(--app-border);
+  border-radius: 50rem;
+  padding: 0.3rem 0.75rem;
+  white-space: nowrap;
+}
+
+.app-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  padding: 1rem 0.75rem 0.25rem;
+  border-top: 1px solid var(--app-border);
+}
+
+/* Signed-in-user card: a label above the full email, wrapping onto as many
+   lines as needed rather than truncating, so the address is readable by
+   default (no hover required to see it). Kept as a small tinted card -
+   same surface/border treatment as e.g. table headers - so it reads as
+   part of the sidebar's design system rather than a bare pill. */
+.app-sidebar-user {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--app-radius-sm);
+  background-color: var(--app-surface-alt);
+  border: 1px solid var(--app-border);
+}
+
+.app-sidebar-user-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-text-muted);
+}
+
+.app-sidebar-user-email {
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--app-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Dark-mode toggle row, styled to match the nav links above it (same
+   horizontal padding/radius, same muted-to-solid hover color shift, same
+   icon column width) instead of a bare react-bootstrap Form.Check. */
+.app-sidebar-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--app-radius-sm);
+}
+
+.app-sidebar-toggle:hover {
+  background-color: var(--app-surface-alt);
+}
+
+.app-sidebar-switch.form-check {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.app-sidebar-switch .form-check-label {
+  color: var(--app-text-muted);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.app-sidebar-toggle:hover .app-sidebar-switch .form-check-label {
+  color: var(--app-text);
+}
+
+.app-sidebar-switch .form-check-input {
+  cursor: pointer;
+}
+
+.app-sidebar-switch .form-check-input:checked {
+  background-color: var(--app-primary);
+  border-color: var(--app-primary);
+}
+
+.app-content {
+  padding: 1.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-sidebar-offcanvas .offcanvas-body {
+  padding: 1rem;
+}
+
+/* ---- Page header ---- */
+
+.app-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+}
+
+.app-breadcrumb-sep {
+  opacity: 0.6;
+}
+
+.app-page-header {
+  margin-bottom: 1.25rem;
+}
+
+.app-page-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.app-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--app-text);
+  margin-bottom: 0.15rem;
+}
+
+.app-page-description {
+  color: var(--app-text-muted);
+  margin-bottom: 0;
+  font-size: 0.9rem;
+}
+
+/* ---- Cards ---- */
+
+.card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.app-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+/* ---- Filter chips ---- */
+
+.app-filter-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.app-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.app-chip {
+  border-radius: 50rem !important;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.9rem;
+}
+
+/* Status-specific chips (as opposed to the neutral "All" chip, which keeps
+   plain primary/outline-secondary styling) - tinted with the same
+   success/danger/warning/info/secondary palette as StatusPill so a filter
+   chip visually matches the status it filters for. Two classes deep beats
+   Bootstrap's single-class .btn-outline-secondary etc regardless of the
+   stylesheet load order, so no !important needed here. */
+.app-chip-status.app-chip {
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.app-chip-status.app-chip-success { color: #2f8f68; background-color: rgba(var(--bs-success-rgb), 0.14); }
+.app-chip-status.app-chip-danger { color: #c14840; background-color: rgba(var(--bs-danger-rgb), 0.14); }
+.app-chip-status.app-chip-warning { color: #a9761f; background-color: rgba(var(--bs-warning-rgb), 0.16); }
+.app-chip-status.app-chip-info { color: #2f7db0; background-color: rgba(var(--bs-info-rgb), 0.14); }
+.app-chip-status.app-chip-secondary { color: #5c6779; background-color: rgba(var(--bs-secondary-rgb), 0.16); }
+
+.app-chip-status.app-chip-success:hover { background-color: rgba(var(--bs-success-rgb), 0.22); color: #2f8f68; }
+.app-chip-status.app-chip-danger:hover { background-color: rgba(var(--bs-danger-rgb), 0.22); color: #c14840; }
+.app-chip-status.app-chip-warning:hover { background-color: rgba(var(--bs-warning-rgb), 0.24); color: #a9761f; }
+.app-chip-status.app-chip-info:hover { background-color: rgba(var(--bs-info-rgb), 0.22); color: #2f7db0; }
+.app-chip-status.app-chip-secondary:hover { background-color: rgba(var(--bs-secondary-rgb), 0.24); color: #5c6779; }
+
+/* Selected/active state - solid fill so it's unambiguous which filter is
+   currently applied, while still conveying the status color. */
+.app-chip-status.app-chip-active.app-chip-success { background-color: var(--bs-success); border-color: var(--bs-success); color: #fff; }
+.app-chip-status.app-chip-active.app-chip-danger { background-color: var(--bs-danger); border-color: var(--bs-danger); color: #fff; }
+.app-chip-status.app-chip-active.app-chip-warning { background-color: var(--bs-warning); border-color: var(--bs-warning); color: #40310f; }
+.app-chip-status.app-chip-active.app-chip-info { background-color: var(--bs-info); border-color: var(--bs-info); color: #fff; }
+.app-chip-status.app-chip-active.app-chip-secondary { background-color: var(--bs-secondary); border-color: var(--bs-secondary); color: #fff; }
+
+.app-chip-status.app-chip-active.app-chip-success:hover { background-color: var(--bs-success); color: #fff; }
+.app-chip-status.app-chip-active.app-chip-danger:hover { background-color: var(--bs-danger); color: #fff; }
+.app-chip-status.app-chip-active.app-chip-warning:hover { background-color: var(--bs-warning); color: #40310f; }
+.app-chip-status.app-chip-active.app-chip-info:hover { background-color: var(--bs-info); color: #fff; }
+.app-chip-status.app-chip-active.app-chip-secondary:hover { background-color: var(--bs-secondary); color: #fff; }
+
+[data-bs-theme='dark'] .app-chip-status.app-chip-success { color: #7fe0b8; }
+[data-bs-theme='dark'] .app-chip-status.app-chip-danger { color: #f0968f; }
+[data-bs-theme='dark'] .app-chip-status.app-chip-warning { color: #f2c37e; }
+[data-bs-theme='dark'] .app-chip-status.app-chip-info { color: #8cc9ee; }
+[data-bs-theme='dark'] .app-chip-status.app-chip-secondary { color: #c3c8dc; }
+
+/* ---- Tables ---- */
+
+.app-table {
+  font-size: 0.8rem;
+  margin-bottom: 0;
+}
+
+.app-table thead th {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  background-color: var(--app-surface-alt);
+  border-bottom: 1px solid var(--app-border);
+  white-space: nowrap;
+}
+
+.app-table tbody td {
+  vertical-align: middle;
+  border-color: var(--app-border);
+}
+
+.app-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.app-table tbody tr:hover {
+  background-color: var(--app-surface-alt);
+}
+
+.app-table a {
+  text-decoration: none;
+}
+
+.app-table a:hover {
+  text-decoration: underline;
+}
+
+.row-status-success {
+  box-shadow: inset 3px 0 0 var(--bs-success);
+  background-color: var(--row-success-bg);
+}
+
+.row-status-danger {
+  box-shadow: inset 3px 0 0 var(--bs-danger);
+  background-color: var(--row-danger-bg);
+}
+
+.row-status-warning {
+  box-shadow: inset 3px 0 0 var(--bs-warning);
+  background-color: var(--row-warning-bg);
+}
+
+/* ---- Status pills ---- */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 50rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-pill::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+.status-pill-success {
+  background-color: rgba(var(--bs-success-rgb), 0.14);
+  color: #2f8f68;
+}
+
+.status-pill-danger {
+  background-color: rgba(var(--bs-danger-rgb), 0.14);
+  color: #c14840;
+}
+
+.status-pill-warning {
+  background-color: rgba(var(--bs-warning-rgb), 0.16);
+  color: #a9761f;
+}
+
+.status-pill-info {
+  background-color: rgba(var(--bs-info-rgb), 0.14);
+  color: #2f7db0;
+}
+
+.status-pill-secondary {
+  background-color: rgba(var(--bs-secondary-rgb), 0.16);
+  color: #5c6779;
+}
+
+[data-bs-theme='dark'] .status-pill-success {
+  color: #7fe0b8;
+}
+
+[data-bs-theme='dark'] .status-pill-danger {
+  color: #f0968f;
+}
+
+[data-bs-theme='dark'] .status-pill-warning {
+  color: #f2c37e;
+}
+
+[data-bs-theme='dark'] .status-pill-info {
+  color: #8cc9ee;
+}
+
+[data-bs-theme='dark'] .status-pill-secondary {
+  color: #c3c8dc;
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+  font-weight: 500;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  box-shadow: 0 0.25rem 0.75rem rgba(var(--app-primary-rgb), 0.25);
+}
+
+@media (max-width: 767.98px) {
+  .app-content {
+    padding: 1rem;
+  }
+
+  .app-topbar {
+    padding: 0.75rem 1rem;
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Form, Button, Spinner, Alert } from 'react-bootstrap';
+import { Form, Button, Spinner, Alert, Card } from 'react-bootstrap';
+import PageHeader from '../components/PageHeader';
 
 function UploadPage() {
   const navigate = useNavigate();
@@ -44,38 +45,46 @@ function UploadPage() {
   };
 
   return (
-    <Row className="my-3">
-      <Col>
-        <h1>Check URL Redirects</h1>
-        <p className="text-muted">
-          Upload a CSV or Excel file with <code>from</code> and <code>to</code> columns.
-        </p>
-        <Form onSubmit={handleSubmit}>
-          <Form.Group>
-            <Form.Control
-              type="file"
-              onChange={handleFileChange}
-              accept=".csv,.xlsx"
-              disabled={isUploading}
-            />
-          </Form.Group>
-          {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={!file || isUploading}
-            className="mt-3"
-          >
-            {isUploading ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
-                Uploading...
-              </>
-            ) : 'Start Checking'}
-          </Button>
-        </Form>
-      </Col>
-    </Row>
+    <>
+      <PageHeader
+        breadcrumbs={['New Check']}
+        title="Check URL Redirects"
+        description="Upload a CSV or Excel file with from and to columns."
+      />
+
+      <Card className="app-card">
+        <Card.Body>
+          <Form onSubmit={handleSubmit}>
+            <Form.Group>
+              <Form.Label className="text-muted small text-uppercase">Spreadsheet</Form.Label>
+              <Form.Control
+                type="file"
+                onChange={handleFileChange}
+                accept=".csv,.xlsx"
+                disabled={isUploading}
+              />
+              <Form.Text className="text-muted">
+                Columns should be named <code>from</code> and <code>to</code>.
+              </Form.Text>
+            </Form.Group>
+            {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={!file || isUploading}
+              className="mt-3"
+            >
+              {isUploading ? (
+                <>
+                  <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+                  Uploading...
+                </>
+              ) : 'Start Checking'}
+            </Button>
+          </Form>
+        </Card.Body>
+      </Card>
+    </>
   );
 }
 
