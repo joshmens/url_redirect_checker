@@ -20,17 +20,38 @@ jobs:
 
       - name: Deploy via SSM
         run: |
+          INSTANCE_ID="i-0d3b8e61062dedab9"
+
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "i-0d3b8e61062dedab9" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["cd /opt/urlchecker/app && git pull && docker compose -f docker-compose.aws.yml up -d --build"]' \
             --query "Command.CommandId" --output text)
 
-          echo "Waiting for command $COMMAND_ID..."
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "i-0d3b8e61062dedab9"
+          # aws ssm wait command-executed gives up after a fixed ~100s, which
+          # is shorter than a full `docker compose build` on this instance's
+          # 1GB RAM (the React production build alone can take 2+ minutes).
+          # Poll manually instead, with enough headroom for that.
+          echo "Waiting for command $COMMAND_ID (up to 10 minutes)..."
+          STATUS="InProgress"
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" --output text)
+            echo "[$i] status: $STATUS"
+            case "$STATUS" in
+              Pending|InProgress|Delayed) sleep 10 ;;
+              *) break ;;
+            esac
+          done
 
           aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
-            --instance-id "i-0d3b8e61062dedab9"
+            --instance-id "$INSTANCE_ID" \
+            --query "{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}"
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::Deploy command finished with status $STATUS"
+            exit 1
+          fi
