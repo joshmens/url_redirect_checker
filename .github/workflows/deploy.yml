@@ -18,6 +18,55 @@ jobs:
           role-to-assume: arn:aws:iam::963439717919:role/urlchecker-github-deploy
           aws-region: ap-southeast-2
 
+      - name: Ensure instance is running
+        run: |
+          set -e
+          INSTANCE_ID="i-0d3b8e61062dedab9"
+
+          # The worker's auto-stop-after-idle Cloudflare Worker (out of scope
+          # here, see worker/ — untracked) can leave this instance stopped
+          # between deploys. Treat "instance is stopped" as a normal,
+          # recurring condition rather than a hard failure.
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[0].Instances[0].State.Name" --output text)
+          echo "Current instance state: $STATE"
+
+          if [ "$STATE" = "stopping" ]; then
+            echo "Instance is stopping, waiting for it to fully stop first..."
+            aws ec2 wait instance-stopped --instance-ids "$INSTANCE_ID"
+            STATE="stopped"
+          fi
+
+          if [ "$STATE" = "stopped" ]; then
+            echo "Instance was stopped, starting it..."
+            aws ec2 start-instances --instance-ids "$INSTANCE_ID"
+
+            echo "Waiting for instance to reach 'running' state..."
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+            echo "Instance is running."
+
+            echo "Waiting for SSM agent to report Online (up to 2 minutes)..."
+            PING_STATUS="Unknown"
+            for i in $(seq 1 24); do
+              PING_STATUS=$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+                --query "InstanceInformationList[0].PingStatus" --output text)
+              echo "[$i] SSM ping status: $PING_STATUS"
+              if [ "$PING_STATUS" = "Online" ]; then
+                break
+              fi
+              sleep 5
+            done
+
+            if [ "$PING_STATUS" != "Online" ]; then
+              echo "::error::SSM agent did not report Online within 2 minutes of instance start"
+              exit 1
+            fi
+          else
+            echo "Instance already running, proceeding."
+          fi
+
       - name: Deploy via SSM
         run: |
           INSTANCE_ID="i-0d3b8e61062dedab9"
